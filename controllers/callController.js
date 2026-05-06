@@ -16,6 +16,10 @@ const initiateCall = async (req, res) => {
         }
 
         const io = req.app.get("io");
+
+        console.log(`DEBUG: Looking up receiverSocketId for receiverId: ${receiverId}`);
+        console.log(`DEBUG: Available online users in map: ${Array.from(onlineUsers.keys())}`);
+
         const receiverSocketId = onlineUsers.get(receiverId);
 
         if (receiverSocketId) {

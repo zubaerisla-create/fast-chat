@@ -26,6 +26,9 @@ const initializeSocket = (io) => {
       onlineUsers.set(userId, socket.id);
       socket.userId = userId; // Attach userId to socket for cleanup on disconnect
 
+      console.log(`DEBUG: User ${userId} is now mapped to socket ${socket.id}`);
+      console.log(`DEBUG: Current online users: ${Array.from(onlineUsers.keys())}`);
+
       // Notify all clients about the currently online user list
       io.emit("onlineUsers", Array.from(onlineUsers.keys()));
 
