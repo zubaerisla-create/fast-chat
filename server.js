@@ -10,6 +10,8 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const conversationRoutes = require("./routes/conversationRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const agoraRoutes = require("./routes/agoraRoutes");
+const callRoutes = require("./routes/callRoutes");
 const { errorHandler } = require("./middleware/errorMiddleware");
 const { initializeSocket } = require("./sockets/socketHandler");
 
@@ -21,7 +23,7 @@ connectDB();
 // ─── Core Middleware ──────────────────────────────────────────────────────────
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || ["http://localhost:3000", "http://localhost:3001", "https://fast-chat-frontend-swart.vercel.app","CLIENT_URL=https://fast-chat-frontend-app.vercel.app"],
+    origin: process.env.CLIENT_URL || ["http://localhost:3000", "http://localhost:3001", "https://fast-chat-frontend-swart.vercel.app", "CLIENT_URL=https://fast-chat-frontend-app.vercel.app"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -44,6 +46,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/agora", agoraRoutes);
+app.use("/api/call", callRoutes);
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
@@ -58,7 +62,7 @@ const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || ["http://localhost:3000", "http://localhost:3001" , "https://fast-chat-frontend-swart.vercel.app","CLIENT_URL=https://fast-chat-frontend-app.vercel.app"],
+    origin: process.env.CLIENT_URL || ["http://localhost:3000", "http://localhost:3001", "https://fast-chat-frontend-swart.vercel.app", "CLIENT_URL=https://fast-chat-frontend-app.vercel.app"],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -68,6 +72,9 @@ const io = new Server(httpServer, {
 
 // Register all socket event handlers
 initializeSocket(io);
+
+// Store io in app to access from controllers
+app.set("io", io);
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;

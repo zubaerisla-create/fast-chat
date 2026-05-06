@@ -87,6 +87,48 @@ const initializeSocket = (io) => {
       }
     });
 
+    // ─── CALL SIGNALING ──────────────────────────────────────────────────────
+    /**
+     * Relays call acceptance to the caller.
+     * Payload: { callerId, channelName }
+     */
+    socket.on("call_accepted", ({ callerId, channelName }) => {
+      const callerSocketId = onlineUsers.get(callerId);
+      if (callerSocketId) {
+        io.to(callerSocketId).emit("call_accepted", {
+          receiverId: socket.userId,
+          channelName,
+        });
+        console.log(`📞 Call accepted: ${socket.userId} -> ${callerId}`);
+      }
+    });
+
+    /**
+     * Relays call rejection to the caller.
+     * Payload: { callerId }
+     */
+    socket.on("call_rejected", ({ callerId }) => {
+      const callerSocketId = onlineUsers.get(callerId);
+      if (callerSocketId) {
+        io.to(callerSocketId).emit("call_rejected", {
+          receiverId: socket.userId,
+        });
+        console.log(`🚫 Call rejected: ${socket.userId} -> ${callerId}`);
+      }
+    });
+
+    /**
+     * Relays call end to the other participant.
+     * Payload: { otherUserId, channelName }
+     */
+    socket.on("call_ended", ({ otherUserId, channelName }) => {
+      const otherUserSocketId = onlineUsers.get(otherUserId);
+      if (otherUserSocketId) {
+        io.to(otherUserSocketId).emit("call_ended", { channelName });
+        console.log(`🏁 Call ended by ${socket.userId} for channel ${channelName}`);
+      }
+    });
+
     // ─── USER DISCONNECTS ─────────────────────────────────────────────────────
     socket.on("disconnect", async () => {
       if (socket.userId) {
