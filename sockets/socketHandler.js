@@ -15,6 +15,11 @@ const initializeSocket = (io) => {
   io.on("connection", (socket) => {
     console.log(`🔌 Socket connected: ${socket.id}`);
 
+    // DEBUG: Log ALL events received from this socket to identify registration event
+    socket.onAny((event, ...args) => {
+      console.log(`DEBUG: Event received [${event}] from socket ${socket.id}:`, JSON.stringify(args));
+    });
+
     // ─── USER COMES ONLINE ────────────────────────────────────────────────────
     /**
      * Client emits "userOnline" with their userId after connecting.
