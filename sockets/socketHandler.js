@@ -14,6 +14,8 @@ const onlineUsers = new Map();
 const initializeSocket = (io) => {
   io.on("connection", (socket) => {
     console.log(`🔌 Socket connected: ${socket.id}`);
+    console.log(`DEBUG: Handshake Query:`, JSON.stringify(socket.handshake.query));
+    console.log(`DEBUG: Handshake Auth:`, JSON.stringify(socket.handshake.auth));
 
     // DEBUG: Log ALL events received from this socket to identify registration event
     socket.onAny((event, ...args) => {
