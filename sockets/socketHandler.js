@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const agoraService = require("../services/agoraService");
 
 /**
  * In-memory map: userId (string) → socketId (string)
@@ -105,11 +106,35 @@ const initializeSocket = (io) => {
     socket.on("call_accepted", ({ callerId, channelName }) => {
       const callerSocketId = onlineUsers.get(callerId);
       if (callerSocketId) {
-        io.to(callerSocketId).emit("call_accepted", {
-          receiverId: socket.userId,
-          channelName,
-        });
-        console.log(`📞 Call accepted: ${socket.userId} -> ${callerId}`);
+        try {
+          // Generate tokens for both parties (using fixed UIDs 1 and 2 for simplicity in 1-to-1)
+          const callerTokenData = agoraService.getRtcToken(channelName, 1);
+          const receiverTokenData = agoraService.getRtcToken(channelName, 2);
+
+          // Notify caller that call was accepted and provide join info
+          io.to(callerSocketId).emit("acceptCall", {
+            receiverId: socket.userId,
+            channelName,
+            token: callerTokenData.token,
+            uid: 1,
+            appId: callerTokenData.appId
+          });
+
+          // Notify receiver (current socket) to join as well
+          socket.emit("acceptCall", {
+            callerId,
+            channelName,
+            token: receiverTokenData.token,
+            uid: 2,
+            appId: receiverTokenData.appId
+          });
+
+          console.log(`[Socket] Call accepted: ${socket.userId} (Receiver) -> ${callerId} (Caller)`);
+          console.log(`[Agora] Tokens generated for channel: ${channelName}`);
+        } catch (error) {
+          console.error("[Agora] Token generation failed:", error.message);
+          socket.emit("call_error", { message: "Failed to join call" });
+        }
       }
     });
 
@@ -123,7 +148,7 @@ const initializeSocket = (io) => {
         io.to(callerSocketId).emit("call_rejected", {
           receiverId: socket.userId,
         });
-        console.log(`🚫 Call rejected: ${socket.userId} -> ${callerId}`);
+        console.log(`🚫 [Socket] Call rejected: ${socket.userId} -> ${callerId}`);
       }
     });
 
@@ -135,8 +160,10 @@ const initializeSocket = (io) => {
       const otherUserSocketId = onlineUsers.get(otherUserId);
       if (otherUserSocketId) {
         io.to(otherUserSocketId).emit("call_ended", { channelName });
-        console.log(`🏁 Call ended by ${socket.userId} for channel ${channelName}`);
+        console.log(`🏁 [Socket] Call ended: ${socket.userId} for channel ${channelName}`);
       }
+      // Also notify current user to ensure cleanup
+      socket.emit("call_ended", { channelName });
     });
 
     // ─── USER DISCONNECTS ─────────────────────────────────────────────────────
