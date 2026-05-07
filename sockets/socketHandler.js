@@ -84,7 +84,9 @@ const initializeSocket = (io) => {
       }
 
       // SERVER generates the channel name — single source of truth
-      const channelName = `call_${callerId}_${receiverId}_${Date.now()}`;
+      // Keep channel name ≤ 64 chars (Agora hard limit)
+      // Use last 8 chars of each ID + base-36 timestamp (~8 chars) = ~28 chars total
+      const channelName = `ch_${callerId.slice(-8)}_${receiverId.slice(-8)}_${Date.now().toString(36)}`;
 
       // Store the active call
       activeCalls.set(channelName, { callerId, receiverId, callType });
