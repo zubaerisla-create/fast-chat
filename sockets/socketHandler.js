@@ -128,7 +128,12 @@ const initializeSocket = (io) => {
      * Relays call acceptance to the caller and provides Agora tokens to both.
      * Payload: { callerId, channelName }
      */
-    socket.on("call_accepted", ({ callerId, channelName }) => {
+    /**
+     * Relays call acceptance to the caller and provides Agora tokens to both.
+     * Supports both 'call_accepted' and 'acceptCall' for frontend compatibility.
+     * Payload: { callerId, channelName }
+     */
+    const handleCallAccepted = ({ callerId, channelName }) => {
       const callerSocketId = onlineUsers.get(callerId);
 
       console.log(`[Socket] Call acceptance received from ${socket.userId} for caller ${callerId}`);
@@ -140,7 +145,6 @@ const initializeSocket = (io) => {
           const receiverTokenData = agoraService.getRtcToken(channelName, 2);
 
           // Both users get the SAME event name with their specific token/uid
-          // This ensures the frontend state machine moves to ONGOING at the same time
 
           // Emit to Caller
           io.to(callerSocketId).emit("acceptCall", {
@@ -166,7 +170,10 @@ const initializeSocket = (io) => {
           io.to(callerSocketId).to(socket.id).emit("call_error", { message: "Agora token error" });
         }
       }
-    });
+    };
+
+    socket.on("call_accepted", handleCallAccepted);
+    socket.on("acceptCall", handleCallAccepted);
 
     /**
      * Relays call rejection to the caller.
