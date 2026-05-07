@@ -13,10 +13,22 @@ const uploadFile = async (req, res, next) => {
             return res.status(400).json({ success: false, message: "No file provided." });
         }
 
+        // Logging for debugging (will show up in Render logs)
+        console.log(`📤 Starting upload: ${req.file.originalname} (${req.file.mimetype})`);
+
+        // Check if Cloudinary is configured
+        if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY) {
+            console.error("❌ Cloudinary error: Missing credentials in environment variables.");
+            return res.status(500).json({
+                success: false,
+                message: "Cloudinary is not configured on the server. Please check environment variables.",
+            });
+        }
+
         const { mimetype, originalname, size, buffer } = req.file;
 
         // Determine resource_type for Cloudinary
-        let resourceType = "raw"; // for generic files (pdf, doc, zip…)
+        let resourceType = "raw";
         let fileType = "file";
 
         if (mimetype.startsWith("image/")) {
@@ -27,7 +39,7 @@ const uploadFile = async (req, res, next) => {
             fileType = "video";
         }
 
-        // Stream buffer directly to Cloudinary (no temp file on disk)
+        // Stream buffer directly to Cloudinary
         const uploadResult = await new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 {
@@ -37,12 +49,17 @@ const uploadFile = async (req, res, next) => {
                     unique_filename: true,
                 },
                 (error, result) => {
-                    if (error) return reject(error);
+                    if (error) {
+                        console.error("❌ Cloudinary upload_stream error:", error);
+                        return reject(error);
+                    }
                     resolve(result);
                 }
             );
             streamifier.createReadStream(buffer).pipe(uploadStream);
         });
+
+        console.log(`✅ Upload successful: ${uploadResult.secure_url}`);
 
         return res.status(200).json({
             success: true,
@@ -53,6 +70,7 @@ const uploadFile = async (req, res, next) => {
             fileSize: size,
         });
     } catch (error) {
+        console.error("❌ uploadFile controller error:", error.message);
         next(error);
     }
 };

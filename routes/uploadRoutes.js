@@ -29,6 +29,19 @@ const upload = multer({
 });
 
 // POST /api/upload — authenticated
-router.post("/", protect, upload.single("file"), uploadFile);
+router.post("/", protect, (req, res, next) => {
+    upload.single("file")(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            // A Multer error occurred when uploading (e.g. file too large)
+            return res.status(400).json({ success: false, message: `Upload error: ${err.message}` });
+        } else if (err) {
+            // An unknown error occurred when uploading or filtered out
+            return res.status(400).json({ success: false, message: err.message });
+        }
+        // Everything went fine.
+        next();
+    });
+}, uploadFile);
+
 
 module.exports = router;
