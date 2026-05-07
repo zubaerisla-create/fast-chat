@@ -100,40 +100,70 @@ const initializeSocket = (io) => {
 
     // ─── CALL SIGNALING ──────────────────────────────────────────────────────
     /**
-     * Relays call acceptance to the caller.
+     * Initiates a call via socket.
+     * Payload: { receiverId, channelName, callType }
+     */
+    socket.on("initiate_call", ({ receiverId, channelName, callType }) => {
+      const receiverSocketId = onlineUsers.get(receiverId);
+
+      console.log(`[Socket] Call initiated by ${socket.userId} for receiver ${receiverId}`);
+
+      if (receiverSocketId) {
+        // Notify the receiver
+        io.to(receiverSocketId).emit("incoming_call", {
+          callerId: socket.userId,
+          callerName: "A User", // Ideally fetched from DB or socket session
+          channelName,
+          callType,
+        });
+
+        // Confirm to caller that the call is being placed
+        socket.emit("call_initiated", { receiverId, channelName, callType });
+      } else {
+        socket.emit("call_error", { message: "Receiver is offline" });
+      }
+    });
+
+    /**
+     * Relays call acceptance to the caller and provides Agora tokens to both.
      * Payload: { callerId, channelName }
      */
     socket.on("call_accepted", ({ callerId, channelName }) => {
       const callerSocketId = onlineUsers.get(callerId);
+
+      console.log(`[Socket] Call acceptance received from ${socket.userId} for caller ${callerId}`);
+
       if (callerSocketId) {
         try {
-          // Generate tokens for both parties (using fixed UIDs 1 and 2 for simplicity in 1-to-1)
+          // Generate unique tokens for both parties
           const callerTokenData = agoraService.getRtcToken(channelName, 1);
           const receiverTokenData = agoraService.getRtcToken(channelName, 2);
 
-          // Notify caller that call was accepted and provide join info
+          // Both users get the SAME event name with their specific token/uid
+          // This ensures the frontend state machine moves to ONGOING at the same time
+
+          // Emit to Caller
           io.to(callerSocketId).emit("acceptCall", {
-            receiverId: socket.userId,
+            otherUserId: socket.userId,
             channelName,
             token: callerTokenData.token,
             uid: 1,
             appId: callerTokenData.appId
           });
 
-          // Notify receiver (current socket) to join as well
+          // Emit to Receiver
           socket.emit("acceptCall", {
-            callerId,
+            otherUserId: callerId,
             channelName,
             token: receiverTokenData.token,
             uid: 2,
             appId: receiverTokenData.appId
           });
 
-          console.log(`[Socket] Call accepted: ${socket.userId} (Receiver) -> ${callerId} (Caller)`);
-          console.log(`[Agora] Tokens generated for channel: ${channelName}`);
+          console.log(`[Socket] acceptCall emitted to both. Channel: ${channelName}`);
         } catch (error) {
           console.error("[Agora] Token generation failed:", error.message);
-          socket.emit("call_error", { message: "Failed to join call" });
+          io.to(callerSocketId).to(socket.id).emit("call_error", { message: "Agora token error" });
         }
       }
     });
@@ -158,11 +188,14 @@ const initializeSocket = (io) => {
      */
     socket.on("call_ended", ({ otherUserId, channelName }) => {
       const otherUserSocketId = onlineUsers.get(otherUserId);
+
+      console.log(`🏁 [Socket] Call end signal from ${socket.userId} for child ${channelName}`);
+
       if (otherUserSocketId) {
         io.to(otherUserSocketId).emit("call_ended", { channelName });
-        console.log(`🏁 [Socket] Call ended: ${socket.userId} for channel ${channelName}`);
       }
-      // Also notify current user to ensure cleanup
+
+      // Always confirm back to the sender
       socket.emit("call_ended", { channelName });
     });
 

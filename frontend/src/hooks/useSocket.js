@@ -11,6 +11,11 @@ const useSocket = (socket) => {
     useEffect(() => {
         if (!socket) return;
 
+        // Handle outgoing call confirmation
+        socket.on("call_initiated", (data) => {
+            console.log("[Socket] Call initiated confirmation", data);
+        });
+
         // Handle incoming call
         socket.on("incoming_call", (data) => {
             console.log("[Socket] Incoming call event received", data);
@@ -37,6 +42,7 @@ const useSocket = (socket) => {
         });
 
         return () => {
+            socket.off("call_initiated");
             socket.off("incoming_call");
             socket.off("acceptCall");
             socket.off("call_rejected");
