@@ -1,4 +1,6 @@
 const User = require("../models/User");
+const cloudinary = require("../config/cloudinary");
+const streamifier = require("streamifier");
 
 /**
  * GET /api/users
@@ -66,4 +68,62 @@ const getUserById = async (req, res, next) => {
   }
 };
 
-module.exports = { getAllUsers, searchUsers, getUserById };
+
+/**
+ * PUT /api/users/profile
+ * Update user profile (username, avatar).
+ * Returns updated user including email.
+ */
+const updateProfile = async (req, res, next) => {
+  try {
+    const { username } = req.body;
+    const updates = {};
+
+    if (username) updates.username = username;
+
+    // Handle avatar upload if a file is provided
+    if (req.file) {
+      const { mimetype, buffer } = req.file;
+
+      // Determine resource_type for Cloudinary
+      let resourceType = "image"; // Default to image for profile pic
+      if (mimetype.startsWith("video/")) resourceType = "video";
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: "profile-avatars",
+            resource_type: resourceType,
+          },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        streamifier.createReadStream(buffer).pipe(uploadStream);
+      });
+
+      updates.avatar = uploadResult.secure_url;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select("username email avatar lastSeen isOnline");
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully.",
+      user: updatedUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getAllUsers, searchUsers, getUserById, updateProfile };
