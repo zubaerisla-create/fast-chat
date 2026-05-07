@@ -13,6 +13,7 @@ const conversationRoutes = require("./routes/conversationRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const agoraRoutes = require("./routes/agoraRoutes");
 const callRoutes = require("./routes/callRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
 const { errorHandler } = require("./middleware/errorMiddleware");
 const { initializeSocket } = require("./sockets/socketHandler");
 
@@ -49,6 +50,7 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/agora", agoraRoutes);
 app.use("/api/call", callRoutes);
+app.use("/api/upload", uploadRoutes);
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {

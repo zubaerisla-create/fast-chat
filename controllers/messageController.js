@@ -3,21 +3,27 @@ const Conversation = require("../models/Conversation");
 
 /**
  * POST /api/messages
- * Send a new message in a conversation.
- * Also updates the conversation's lastMessage reference and updatedAt timestamp.
+ * Send a new message (text, file, or both) in a conversation.
+ * Body: { conversationId, text?, fileUrl?, fileType?, fileName?, fileSize? }
  */
 const sendMessage = async (req, res, next) => {
   try {
-    const { conversationId, text } = req.body;
+    const { conversationId, text, fileUrl, fileType, fileName, fileSize } = req.body;
     const senderId = req.user._id;
 
-    if (!conversationId || !text) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Conversation ID and text are required." });
+    if (!conversationId) {
+      return res.status(400).json({ success: false, message: "Conversation ID is required." });
     }
 
-    // Verify the sender is actually a participant in this conversation
+    // Must have at least text or a file
+    if (!text && !fileUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "A message must contain text or a file.",
+      });
+    }
+
+    // Verify the sender is a participant in this conversation
     const conversation = await Conversation.findOne({
       _id: conversationId,
       participants: senderId,
@@ -31,7 +37,15 @@ const sendMessage = async (req, res, next) => {
     }
 
     // Create the message
-    const message = await Message.create({ conversationId, senderId, text });
+    const message = await Message.create({
+      conversationId,
+      senderId,
+      text: text || "",
+      fileUrl: fileUrl || null,
+      fileType: fileType || null,
+      fileName: fileName || null,
+      fileSize: fileSize || null,
+    });
 
     // Update conversation: set lastMessage and bump updatedAt for sorting
     await Conversation.findByIdAndUpdate(conversationId, {

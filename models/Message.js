@@ -12,18 +12,38 @@ const messageSchema = new mongoose.Schema(
       ref: "User",
       required: [true, "Sender ID is required"],
     },
+    // Text is optional when a file is attached
     text: {
       type: String,
-      required: [true, "Message text is required"],
       trim: true,
       maxlength: [2000, "Message cannot exceed 2000 characters"],
+      default: "",
     },
+    // ── File / Media attachment ─────────────────────────────────────────────
+    fileUrl: {
+      type: String,
+      default: null,
+    },
+    fileType: {
+      type: String,
+      enum: ["image", "video", "file", null],
+      default: null,
+    },
+    fileName: {
+      type: String,
+      default: null,
+    },
+    fileSize: {
+      type: Number, // bytes
+      default: null,
+    },
+    // ───────────────────────────────────────────────────────────────────────
     isRead: {
       type: Boolean,
       default: false,
     },
   },
-  { timestamps: true } // Provides createdAt and updatedAt automatically
+  { timestamps: true }
 );
 
 // Index for fast message retrieval by conversation, sorted by time
