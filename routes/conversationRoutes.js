@@ -3,6 +3,7 @@ const {
   createConversation,
   getUserConversations,
   getConversationById,
+  getConversationMedia,
 } = require("../controllers/conversationController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -18,5 +19,6 @@ router.use(protect);
 router.post("/", createConversation);
 router.get("/", getUserConversations);
 router.get("/:id", getConversationById);
+router.get("/:id/media", getConversationMedia);
 
 module.exports = router;

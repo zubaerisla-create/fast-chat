@@ -1,4 +1,5 @@
 const Conversation = require("../models/Conversation");
+const Message = require("../models/Message");
 
 /**
  * POST /api/conversations
@@ -103,8 +104,46 @@ const getConversationById = async (req, res, next) => {
   }
 };
 
+
+/**
+ * GET /api/conversations/:id/media
+ * Get all shared images, videos, and files in a conversation.
+ */
+const getConversationMedia = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Verify conversation exists and user is a participant
+    const conversation = await Conversation.findOne({
+      _id: id,
+      participants: req.user._id,
+    });
+
+    if (!conversation) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Conversation not found or access denied." });
+    }
+
+    // Find all messages in this conversation that have a fileUrl
+    const mediaMessages = await Message.find({
+      conversationId: id,
+      fileUrl: { $ne: null },
+    }).sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: mediaMessages.length,
+      media: mediaMessages,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createConversation,
   getUserConversations,
   getConversationById,
+  getConversationMedia,
 };

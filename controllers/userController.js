@@ -84,6 +84,7 @@ const updateProfile = async (req, res, next) => {
     // Handle avatar upload if a file is provided
     if (req.file) {
       const { mimetype, buffer } = req.file;
+      // const {mimetype, buffer} = req.file;
 
       // Determine resource_type for Cloudinary
       let resourceType = "image"; // Default to image for profile pic
