@@ -1,5 +1,7 @@
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
+const cloudinary = require("../config/cloudinary");
+const streamifier = require("streamifier");
 
 /**
  * POST /api/messages
@@ -108,4 +110,73 @@ const getMessages = async (req, res, next) => {
   }
 };
 
-module.exports = { sendMessage, getMessages };
+
+/**
+ * POST /api/messages/voice
+ * Upload a voice message (audio file) to Cloudinary and save to database.
+ * Body: { conversationId }, File: audio
+ */
+const uploadVoiceMessage = async (req, res, next) => {
+  try {
+    const { conversationId } = req.body;
+    const senderId = req.user._id;
+
+    if (!conversationId) {
+      return res.status(400).json({ success: false, message: "Conversation ID is required." });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No audio file provided." });
+    }
+
+    // Verify conversation access
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: senderId,
+    });
+
+    if (!conversation) {
+      return res.status(403).json({ success: false, message: "Access denied." });
+    }
+
+    // Stream to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "voice-messages",
+          resource_type: "video", // Cloudinary handles audio as 'video' resource_type
+        },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+      streamifier.createReadStream(req.file.buffer).pipe(uploadStream);
+    });
+
+    // Create the message
+    const message = await Message.create({
+      conversationId,
+      senderId,
+      text: "",
+      fileUrl: uploadResult.secure_url,
+      fileType: "audio",
+      fileName: req.file.originalname || "voice-message.webm",
+      fileSize: req.file.size,
+    });
+
+    // Update conversation
+    await Conversation.findByIdAndUpdate(conversationId, {
+      lastMessage: message._id,
+      updatedAt: new Date(),
+    });
+
+    await message.populate("senderId", "username avatar");
+
+    res.status(201).json({ success: true, message });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { sendMessage, getMessages, uploadVoiceMessage };
