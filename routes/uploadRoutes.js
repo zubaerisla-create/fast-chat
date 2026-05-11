@@ -16,6 +16,7 @@ const upload = multer({
         const allowed = [
             "image/",
             "video/",
+            "audio/",
             "application/pdf",
             "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
