@@ -8,7 +8,7 @@ const Message = require("../models/Message");
  */
 const createConversation = async (req, res, next) => {
   try {
-    const { receiverId } = req.body;
+    const receiverId = req.body.receiverId || (req.body.participants && req.body.participants[0]);
     const senderId = req.user._id;
 
     if (!receiverId) {
