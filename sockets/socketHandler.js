@@ -54,28 +54,31 @@ const initializeSocket = (io) => {
     socket.on("sendMessage", handleSendMessage);
     socket.on("send_message", handleSendMessage);
 
-    socket.on("markMessagesSeen", async ({ conversationId, senderId, messageIds }) => {
-      const receiverId = socket.userId;
-      if (!receiverId || !senderId || !conversationId) return;
+    // senderId = original message sender (who we notify)
+    // seenBy = person who read the messages (same as socket.userId)
+    socket.on("markMessagesSeen", async ({ conversationId, senderId, seenBy, messageIds }) => {
+      const readerId = socket.userId;
+      // Accept senderId from frontend (targetUserId passed explicitly)
+      const notifyUserId = senderId || null;
+
+      if (!readerId || !conversationId) return;
 
       try {
-        await Message.updateMany(
-          {
-            conversationId,
-            senderId,
-            isRead: false,
-          },
-          { $set: { isRead: true } }
-        );
+        if (notifyUserId) {
+          await Message.updateMany(
+            { conversationId, senderId: notifyUserId, isRead: false },
+            { $set: { isRead: true } }
+          );
 
-        const senderSocketId = onlineUsers.get(senderId);
-        if (senderSocketId) {
-          io.to(senderSocketId).emit("messagesSeen", {
-            conversationId,
-            messageIds: messageIds || [],
-            seenBy: receiverId,
-            seenAt: new Date(),
-          });
+          const senderSocketId = onlineUsers.get(notifyUserId);
+          if (senderSocketId) {
+            io.to(senderSocketId).emit("messagesSeen", {
+              conversationId,
+              messageIds: messageIds || [],
+              seenBy: readerId,
+              seenAt: new Date(),
+            });
+          }
         }
       } catch (err) {
         console.error("Failed to mark messages as seen:", err.message);
@@ -102,9 +105,9 @@ const initializeSocket = (io) => {
     /**
      * Step 1: Caller initiates a call.
      * The SERVER generates the authoritative channelName to prevent mismatches.
-     * Payload: { receiverId, callType: "audio"|"video" }
+     * Payload: { receiverId, callType: "audio"|"video", callerName? }
      */
-    socket.on("initiate_call", ({ receiverId, callType }) => {
+    socket.on("initiate_call", ({ receiverId, callType, callerName }) => {
       const receiverSocketId = onlineUsers.get(receiverId);
       const callerId = socket.userId;
 
@@ -133,6 +136,7 @@ const initializeSocket = (io) => {
       // Notify receiver
       io.to(receiverSocketId).emit("incomingCall", {
         callerId,
+        callerName: callerName || "User",
         channelName,
         callType,
       });
