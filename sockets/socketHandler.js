@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const Message = require("../models/Message");
 const agoraService = require("../services/agoraService");
 
 /**
@@ -42,6 +43,34 @@ const initializeSocket = (io) => {
       const receiverSocketId = onlineUsers.get(receiverId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("receiveMessage", message);
+      }
+    });
+
+    socket.on("markMessagesSeen", async ({ conversationId, senderId, messageIds }) => {
+      const receiverId = socket.userId;
+      if (!receiverId || !senderId || !conversationId) return;
+
+      try {
+        await Message.updateMany(
+          {
+            conversationId,
+            senderId,
+            isRead: false,
+          },
+          { $set: { isRead: true } }
+        );
+
+        const senderSocketId = onlineUsers.get(senderId);
+        if (senderSocketId) {
+          io.to(senderSocketId).emit("messagesSeen", {
+            conversationId,
+            messageIds: messageIds || [],
+            seenBy: receiverId,
+            seenAt: new Date(),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to mark messages as seen:", err.message);
       }
     });
 

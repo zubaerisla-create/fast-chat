@@ -1,5 +1,5 @@
 const express = require("express");
-const { sendMessage, getMessages, uploadVoiceMessage } = require("../controllers/messageController");
+const { sendMessage, getMessages, uploadVoiceMessage, markMessagesAsRead } = require("../controllers/messageController");
 const { protect } = require("../middleware/authMiddleware");
 const multer = require("multer");
 
@@ -28,6 +28,7 @@ router.use(protect);
 
 router.post("/", sendMessage);
 router.post("/voice", upload.single("audio"), uploadVoiceMessage);
+router.patch("/:conversationId/mark-read", markMessagesAsRead);
 router.get("/:conversationId", getMessages);
 
 module.exports = router;

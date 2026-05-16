@@ -110,6 +110,62 @@ const getMessages = async (req, res, next) => {
   }
 };
 
+/**
+ * PATCH /api/messages/:conversationId/mark-read
+ * Mark all incoming unread messages in a conversation as read.
+ */
+const markMessagesAsRead = async (req, res, next) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not a participant in this conversation.",
+      });
+    }
+
+    const unreadMessages = await Message.find({
+      conversationId,
+      senderId: { $ne: userId },
+      isRead: false,
+    }).select("_id senderId");
+
+    if (unreadMessages.length === 0) {
+      return res.status(200).json({
+        success: true,
+        updatedCount: 0,
+        messageIds: [],
+      });
+    }
+
+    const messageIds = unreadMessages.map((message) => message._id);
+
+    await Message.updateMany(
+      {
+        conversationId,
+        senderId: { $ne: userId },
+        isRead: false,
+      },
+      { $set: { isRead: true } }
+    );
+
+    res.status(200).json({
+      success: true,
+      updatedCount: messageIds.length,
+      messageIds,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 /**
  * POST /api/messages/voice
@@ -179,4 +235,4 @@ const uploadVoiceMessage = async (req, res, next) => {
   }
 };
 
-module.exports = { sendMessage, getMessages, uploadVoiceMessage };
+module.exports = { sendMessage, getMessages, uploadVoiceMessage, markMessagesAsRead };

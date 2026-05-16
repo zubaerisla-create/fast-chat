@@ -26,7 +26,7 @@ connectDB();
 app.use(
   cors({
     origin: process.env.CLIENT_URL || ["http://localhost:3000", "http://localhost:3001", "https://fast-chat-frontend-swart.vercel.app", "CLIENT_URL=https://fast-chat-frontend-app.vercel.app", "https://fast-chat-nwbp.onrender.com"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
