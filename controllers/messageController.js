@@ -58,6 +58,40 @@ const sendMessage = async (req, res, next) => {
     // Populate sender details for the real-time response
     await message.populate("senderId", "username avatar");
 
+    // ─── Real-time: broadcast message to ALL participants in this conversation ──
+    const io = req.app.get("io");
+    if (io) {
+      // Re-fetch conversation to get all participant IDs
+      const { onlineUsers } = require("../sockets/socketHandler");
+      const fullConversation = await Conversation.findById(conversationId).select("participants");
+      if (fullConversation) {
+        fullConversation.participants.forEach((participantId) => {
+          // Don't echo back to the sender
+          if (participantId.toString() !== senderId.toString()) {
+            const receiverSocketId = onlineUsers.get(participantId.toString());
+            if (receiverSocketId) {
+              io.to(receiverSocketId).emit("receiveMessage", {
+                message: {
+                  _id: message._id,
+                  id: message._id,
+                  conversationId: message.conversationId,
+                  senderId: message.senderId,
+                  text: message.text,
+                  fileUrl: message.fileUrl,
+                  fileType: message.fileType,
+                  fileName: message.fileName,
+                  isRead: message.isRead,
+                  createdAt: message.createdAt,
+                  timestamp: message.createdAt,
+                },
+              });
+            }
+          }
+        });
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────────
+
     res.status(201).json({ success: true, message });
   } catch (error) {
     next(error);
@@ -155,6 +189,26 @@ const markMessagesAsRead = async (req, res, next) => {
       },
       { $set: { isRead: true } }
     );
+
+    // ─── Real-time: notify the original senders that their messages were seen ──
+    const io = req.app.get("io");
+    if (io && unreadMessages.length > 0) {
+      const { onlineUsers } = require("../sockets/socketHandler");
+      // Group messageIds by senderId so each sender gets one notification
+      const senderIds = [...new Set(unreadMessages.map((m) => m.senderId.toString()))];
+      senderIds.forEach((senderId) => {
+        const senderSocketId = onlineUsers.get(senderId);
+        if (senderSocketId) {
+          io.to(senderSocketId).emit("messagesSeen", {
+            conversationId,
+            messageIds: messageIds.map((id) => id.toString()),
+            seenBy: userId.toString(),
+            seenAt: new Date(),
+          });
+        }
+      });
+    }
+    // ──────────────────────────────────────────────────────────────────────────────
 
     res.status(200).json({
       success: true,

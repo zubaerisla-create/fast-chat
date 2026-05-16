@@ -38,13 +38,21 @@ const initializeSocket = (io) => {
     });
 
     // ─── MESSAGES ────────────────────────────────────────────────────────────
-    socket.on("sendMessage", ({ receiverId, message }) => {
-      if (!receiverId || !message) return;
-      const receiverSocketId = onlineUsers.get(receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("receiveMessage", message);
+    // Handle both "sendMessage" and "send_message" — client uses "send_message"
+    const handleSendMessage = ({ receiverId, message, conversationId: convId }) => {
+      // Note: Real-time delivery is primarily handled by messageController via API.
+      // This socket handler is a fallback for direct socket sends.
+      if (!message) return;
+      if (receiverId) {
+        const receiverSocketId = onlineUsers.get(receiverId);
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit("receiveMessage", { message });
+        }
       }
-    });
+    };
+
+    socket.on("sendMessage", handleSendMessage);
+    socket.on("send_message", handleSendMessage);
 
     socket.on("markMessagesSeen", async ({ conversationId, senderId, messageIds }) => {
       const receiverId = socket.userId;
