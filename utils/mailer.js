@@ -1,5 +1,5 @@
 const sendOTPEmail = async (toEmail, otp) => {
-  const brevoApiKey = process.env.BREVO_API_KEY || "your_brevo_api_key_here";
+  const brevoApiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.EMAIL_USER || "noreply@fastchat.com";
 
   const payload = {
