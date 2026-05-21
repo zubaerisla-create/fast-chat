@@ -1,12 +1,16 @@
 const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_APP_PASSWORD || "lmps ztew idzv pxpu",
   },
+  family: 4, // Force IPv4 to prevent IPv6 ENETUNREACH error
 });
+
 
 const sendOTPEmail = async (toEmail, otp) => {
   if (!process.env.EMAIL_USER) {
