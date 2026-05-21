@@ -1,19 +1,19 @@
-const nodemailer = require("nodemailer");
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD || "cbqe klgw radx ghtl",
-  },
-});
-
 const sendOTPEmail = async (toEmail, otp) => {
-  const mailOptions = {
-    from: process.env.EMAIL_USER || "noreply@fastchat.com",
-    to: toEmail,
+  const brevoApiKey = process.env.BREVO_API_KEY || "your_brevo_api_key_here";
+  const senderEmail = process.env.EMAIL_USER || "noreply@fastchat.com";
+
+  const payload = {
+    sender: {
+      name: "Fast Chat",
+      email: senderEmail,
+    },
+    to: [
+      {
+        email: toEmail,
+      },
+    ],
     subject: "Fast Chat - Verification Code",
-    html: `
+    htmlContent: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Welcome to Fast Chat!</h2>
         <p>Please use the verification code below to complete your registration:</p>
@@ -27,9 +27,25 @@ const sendOTPEmail = async (toEmail, otp) => {
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log("OTP Email sent: " + info.response);
-    return info;
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "api-key": brevoApiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Brevo API Error:", errorData);
+      throw new Error(`Failed to send email: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("OTP Email sent successfully via Brevo. Message ID:", data.messageId);
+    return data;
   } catch (error) {
     console.error("Error sending OTP email:", error);
     throw error;
