@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const dns = require("dns");
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -9,7 +10,11 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_APP_PASSWORD || "lmps ztew idzv pxpu",
   },
   family: 4, // Force IPv4 to prevent IPv6 ENETUNREACH error
+  lookup: (hostname, options, callback) => {
+    dns.lookup(hostname, { family: 4 }, callback);
+  },
 });
+
 
 
 const sendOTPEmail = async (toEmail, otp) => {
