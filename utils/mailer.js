@@ -1,6 +1,9 @@
 const sendOTPEmail = async (toEmail, otp) => {
   const brevoApiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.EMAIL_USER || "noreply@fastchat.com";
+  if (!brevoApiKey) {
+    throw new Error("BREVO_API_KEY is not set in environment variables");
+  }
+  const senderEmail = process.env.EMAIL_USER || "xsmtpsib-066aa997970f027ead0c32964a99c9b118604d223ecf07b0baa043de9179106c-aTfSmle0zjKXZZoCnoreply@fastchat.com";
 
   const payload = {
     sender: {
