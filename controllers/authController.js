@@ -36,7 +36,7 @@ const sendOTP = async (req, res, next) => {
     // Delete any existing OTP for this email
     await OTP.deleteMany({ email });
 
-    // Save the new OTP
+  
     await OTP.create({ email, otp });
 
     // Send the OTP via email
