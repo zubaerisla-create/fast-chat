@@ -1,4 +1,9 @@
 const sendOTPEmail = async (toEmail, otp) => {
+  // DEBUG: log key presence (remove after fixing)
+  const key = process.env.BREVO_SMTP_KEY || "";
+  console.log("[DEBUG] BREVO_SMTP_KEY set:", !!key, "| Length:", key.length, "| Starts with:", key.substring(0, 8));
+  console.log("[DEBUG] BREVO_SMTP_USER:", process.env.BREVO_SMTP_USER || "NOT SET");
+
   if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_KEY) {
     throw new Error("BREVO_SMTP_USER or BREVO_SMTP_KEY is not set in environment variables");
   }
