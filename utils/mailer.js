@@ -1,22 +1,25 @@
-const sendOTPEmail = async (toEmail, otp) => {
-  const brevoApiKey = process.env.BREVO_API_KEY;
-  if (!brevoApiKey) {
-    throw new Error("BREVO_API_KEY is not set in environment variables");
-  }
-  const senderEmail = process.env.EMAIL_USER || "noreply@fastchat.com";
+const nodemailer = require("nodemailer");
 
-  const payload = {
-    sender: {
-      name: "Fast Chat",
-      email: senderEmail,
-    },
-    to: [
-      {
-        email: toEmail,
-      },
-    ],
+const transporter = nodemailer.createTransport({
+  host: "smtp-relay.brevo.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.BREVO_SMTP_USER, // your Brevo account email
+    pass: process.env.BREVO_SMTP_KEY,  // your xsmtpsib-... key
+  },
+});
+
+const sendOTPEmail = async (toEmail, otp) => {
+  if (!process.env.BREVO_SMTP_USER || !process.env.BREVO_SMTP_KEY) {
+    throw new Error("BREVO_SMTP_USER or BREVO_SMTP_KEY is not set in environment variables");
+  }
+
+  const mailOptions = {
+    from: `"Fast Chat" <${process.env.BREVO_SMTP_USER}>`,
+    to: toEmail,
     subject: "Fast Chat - Verification Code",
-    htmlContent: `
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Welcome to Fast Chat!</h2>
         <p>Please use the verification code below to complete your registration:</p>
@@ -30,25 +33,9 @@ const sendOTPEmail = async (toEmail, otp) => {
   };
 
   try {
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "accept": "application/json",
-        "api-key": brevoApiKey,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Brevo API Error:", errorData);
-      throw new Error(`Failed to send email: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log("OTP Email sent successfully via Brevo. Message ID:", data.messageId);
-    return data;
+    const info = await transporter.sendMail(mailOptions);
+    console.log("OTP Email sent successfully via Brevo SMTP. Message ID:", info.messageId);
+    return info;
   } catch (error) {
     console.error("Error sending OTP email:", error);
     throw error;
