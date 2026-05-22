@@ -10,7 +10,7 @@ const streamifier = require("streamifier");
  */
 const sendMessage = async (req, res, next) => {
   try {
-    const { conversationId, text, fileUrl, fileType, fileName, fileSize } = req.body;
+    const { conversationId, text, fileUrl, fileType, fileName, fileSize, audioDuration } = req.body;
     const senderId = req.user._id;
 
     if (!conversationId) {
@@ -47,6 +47,7 @@ const sendMessage = async (req, res, next) => {
       fileType: fileType || null,
       fileName: fileName || null,
       fileSize: fileSize || null,
+      audioDuration: audioDuration || null,
     });
 
     // Update conversation: set lastMessage and bump updatedAt for sorting
@@ -80,6 +81,7 @@ const sendMessage = async (req, res, next) => {
                   fileUrl: message.fileUrl,
                   fileType: message.fileType,
                   fileName: message.fileName,
+                  audioDuration: message.audioDuration,
                   isRead: message.isRead,
                   createdAt: message.createdAt,
                   timestamp: message.createdAt,

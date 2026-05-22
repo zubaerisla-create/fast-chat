@@ -37,6 +37,10 @@ const messageSchema = new mongoose.Schema(
       type: Number, // bytes
       default: null,
     },
+    audioDuration: {
+      type: Number, // seconds
+      default: null,
+    },
     // ───────────────────────────────────────────────────────────────────────
     isRead: {
       type: Boolean,
