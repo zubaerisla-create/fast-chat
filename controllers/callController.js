@@ -1,9 +1,6 @@
 const { onlineUsers } = require("../sockets/socketHandler");
 
-/**
- * Initiates a call and notifies the receiver
- * POST /api/call/initiate
- */
+
 const initiateCall = async (req, res) => {
     try {
         const { callerId, receiverId, channelName, callType } = req.body;
