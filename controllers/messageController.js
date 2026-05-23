@@ -94,32 +94,44 @@ const sendMessage = async (req, res, next) => {
             });
           }
 
-          // ── Push notification (background / offline users) ───────────────
-          // Always attempt push so the app wakes up even when backgrounded.
-          // The frontend suppresses the in-app banner when the user is already
-          // inside the same chat screen (handled client-side via chatId check).
-          try {
-            const receiver = await User.findById(participantId).select("expoPushToken username");
-            if (receiver?.expoPushToken) {
-              const senderName = message.senderId?.username || "Someone";
-              const notificationBody = message.text
-                ? `${senderName}: ${message.text.slice(0, 100)}`
-                : `${senderName} sent ${message.fileType === "image" ? "a photo" : message.fileType === "audio" ? "a voice message" : "a file"}`;
+          // ── Push notification (background / offline users only) ─────────
+          // Only send push if the receiver has NO active socket connection.
+          // If they have a socket, they already got the message via Socket.IO above.
+          // This prevents duplicate alerts when the user is actively using the app.
+          if (!receiverSocketId) {
+            try {
+              const receiver = await User.findById(participantId).select("expoPushToken username");
+              if (receiver?.expoPushToken) {
+                const senderName = message.senderId?.username || "Someone";
+                const notificationBody = message.text
+                  ? `${senderName}: ${message.text.slice(0, 100)}`
+                  : `${senderName} sent ${
+                      message.fileType === "image"
+                        ? "a photo"
+                        : message.fileType === "audio"
+                        ? "a voice message"
+                        : "a file"
+                    }`;
 
-              await sendPushNotification({
-                to: receiver.expoPushToken,
-                title: "New Message",
-                body: notificationBody,
-                data: {
-                  type: "chat",
-                  chatId: conversationId.toString(),
-                  senderId: senderId.toString(),
-                },
-              });
+                console.log(`[Push] Sending to offline user ${participantId}: ${notificationBody}`);
+
+                await sendPushNotification({
+                  to: receiver.expoPushToken,
+                  title: "New Message",
+                  body: notificationBody,
+                  data: {
+                    type: "chat",
+                    chatId: conversationId.toString(),
+                    senderId: senderId.toString(),
+                  },
+                });
+              } else {
+                console.log(`[Push] No push token for user ${participantId} — skipping.`);
+              }
+            } catch (pushError) {
+              // Push failure must never break message delivery
+              console.error("[Push] Error sending notification:", pushError.message);
             }
-          } catch (pushError) {
-            // Push failure must never break message delivery
-            console.error("[Push] Error sending notification:", pushError.message);
           }
         }
       }
