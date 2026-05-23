@@ -4,6 +4,8 @@ const {
   searchUsers,
   getUserById,
   updateProfile,
+  savePushToken,
+  removePushToken,
 } = require("../controllers/userController");
 const { protect } = require("../middleware/authMiddleware");
 const multer = require("multer");
@@ -27,13 +29,18 @@ const router = express.Router();
 // All user routes require authentication
 router.use(protect);
 
-// GET /api/users?          → get all users (excluding self)
-// GET /api/users/search?query=  → search by username or email
-// GET /api/users/:id       → get single user profile
+// GET  /api/users              → get all users (excluding self)
+// GET  /api/users/search?query → search by username or email
+// GET  /api/users/:id          → get single user profile
+// PUT  /api/users/profile      → update profile
+// PUT  /api/users/push-token   → save Expo push token
+// DELETE /api/users/push-token → remove Expo push token (logout)
 
 router.get("/search", searchUsers);
-router.get("/:id", getUserById);
+router.put("/push-token", savePushToken);
+router.delete("/push-token", removePushToken);
 router.put("/profile", upload.single("avatar"), updateProfile);
+router.get("/:id", getUserById);
 router.get("/", getAllUsers);
 
 module.exports = router;

@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const cloudinary = require("../config/cloudinary");
 const streamifier = require("streamifier");
+const { isValidExpoPushToken } = require("../services/pushNotificationService");
 
 /**
  * GET /api/users
@@ -127,4 +128,51 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
-module.exports = { getAllUsers, searchUsers, getUserById, updateProfile };
+/**
+ * PUT /api/users/push-token
+ * Save or update the authenticated user's Expo push token.
+ * Body: { expoPushToken: string }
+ */
+const savePushToken = async (req, res, next) => {
+  try {
+    const { expoPushToken } = req.body;
+
+    if (!expoPushToken) {
+      return res.status(400).json({ success: false, message: "expoPushToken is required." });
+    }
+
+    if (!isValidExpoPushToken(expoPushToken)) {
+      return res.status(400).json({ success: false, message: "Invalid Expo push token format." });
+    }
+
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { expoPushToken } },
+      { new: true }
+    );
+
+    res.status(200).json({ success: true, message: "Push token saved successfully." });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * DELETE /api/users/push-token
+ * Remove the authenticated user's Expo push token (e.g. on logout).
+ */
+const removePushToken = async (req, res, next) => {
+  try {
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: { expoPushToken: null } },
+      { new: true }
+    );
+
+    res.status(200).json({ success: true, message: "Push token removed successfully." });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getAllUsers, searchUsers, getUserById, updateProfile, savePushToken, removePushToken };

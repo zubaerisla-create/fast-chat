@@ -1,7 +1,9 @@
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
+const User = require("../models/User");
 const cloudinary = require("../config/cloudinary");
 const streamifier = require("streamifier");
+const { sendPushNotification } = require("../services/pushNotificationService");
 
 /**
  * POST /api/messages
@@ -66,30 +68,60 @@ const sendMessage = async (req, res, next) => {
       const { onlineUsers } = require("../sockets/socketHandler");
       const fullConversation = await Conversation.findById(conversationId).select("participants");
       if (fullConversation) {
-        fullConversation.participants.forEach((participantId) => {
+        for (const participantId of fullConversation.participants) {
           // Don't echo back to the sender
-          if (participantId.toString() !== senderId.toString()) {
-            const receiverSocketId = onlineUsers.get(participantId.toString());
-            if (receiverSocketId) {
-              io.to(receiverSocketId).emit("receiveMessage", {
-                message: {
-                  _id: message._id,
-                  id: message._id,
-                  conversationId: message.conversationId,
-                  senderId: message.senderId,
-                  text: message.text,
-                  fileUrl: message.fileUrl,
-                  fileType: message.fileType,
-                  fileName: message.fileName,
-                  audioDuration: message.audioDuration,
-                  isRead: message.isRead,
-                  createdAt: message.createdAt,
-                  timestamp: message.createdAt,
+          if (participantId.toString() === senderId.toString()) continue;
+
+          const receiverSocketId = onlineUsers.get(participantId.toString());
+
+          // ── Socket delivery (online users) ──────────────────────────────
+          if (receiverSocketId) {
+            io.to(receiverSocketId).emit("receiveMessage", {
+              message: {
+                _id: message._id,
+                id: message._id,
+                conversationId: message.conversationId,
+                senderId: message.senderId,
+                text: message.text,
+                fileUrl: message.fileUrl,
+                fileType: message.fileType,
+                fileName: message.fileName,
+                audioDuration: message.audioDuration,
+                isRead: message.isRead,
+                createdAt: message.createdAt,
+                timestamp: message.createdAt,
+              },
+            });
+          }
+
+          // ── Push notification (background / offline users) ───────────────
+          // Always attempt push so the app wakes up even when backgrounded.
+          // The frontend suppresses the in-app banner when the user is already
+          // inside the same chat screen (handled client-side via chatId check).
+          try {
+            const receiver = await User.findById(participantId).select("expoPushToken username");
+            if (receiver?.expoPushToken) {
+              const senderName = message.senderId?.username || "Someone";
+              const notificationBody = message.text
+                ? `${senderName}: ${message.text.slice(0, 100)}`
+                : `${senderName} sent ${message.fileType === "image" ? "a photo" : message.fileType === "audio" ? "a voice message" : "a file"}`;
+
+              await sendPushNotification({
+                to: receiver.expoPushToken,
+                title: "New Message",
+                body: notificationBody,
+                data: {
+                  type: "chat",
+                  chatId: conversationId.toString(),
+                  senderId: senderId.toString(),
                 },
               });
             }
+          } catch (pushError) {
+            // Push failure must never break message delivery
+            console.error("[Push] Error sending notification:", pushError.message);
           }
-        });
+        }
       }
     }
     // ─────────────────────────────────────────────────────────────────────────────
