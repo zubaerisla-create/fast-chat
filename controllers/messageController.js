@@ -94,44 +94,50 @@ const sendMessage = async (req, res, next) => {
             });
           }
 
-          // ── Push notification (background / offline users only) ─────────
-          // Only send push if the receiver has NO active socket connection.
-          // If they have a socket, they already got the message via Socket.IO above.
-          // This prevents duplicate alerts when the user is actively using the app.
-          if (!receiverSocketId) {
-            try {
-              const receiver = await User.findById(participantId).select("expoPushToken username");
-              if (receiver?.expoPushToken) {
-                const senderName = message.senderId?.username || "Someone";
-                const notificationBody = message.text
-                  ? `${senderName}: ${message.text.slice(0, 100)}`
-                  : `${senderName} sent ${
-                      message.fileType === "image"
-                        ? "a photo"
-                        : message.fileType === "audio"
-                        ? "a voice message"
-                        : "a file"
-                    }`;
+          // ── Push notification ────────────────────────────────────────────
+          // ALWAYS send push — even if the receiver has an active socket.
+          //
+          // Why: A connected socket does NOT mean the user is looking at the app.
+          // On mobile, the socket stays alive via TCP keepalive even when the user
+          // switches to another app. Skipping push in that case means they never
+          // get notified.
+          //
+          // Duplicate prevention is handled on the FRONTEND:
+          //   - If the app is foregrounded AND the user is inside this exact chat,
+          //     the notification listener suppresses the banner (chatId check).
+          //   - If the app is backgrounded/killed, the OS shows the notification.
+          try {
+            const receiver = await User.findById(participantId).select("expoPushToken username");
+            if (receiver?.expoPushToken) {
+              const senderName = message.senderId?.username || "Someone";
+              const notificationBody = message.text
+                ? `${senderName}: ${message.text.slice(0, 100)}`
+                : `${senderName} sent ${
+                    message.fileType === "image"
+                      ? "a photo"
+                      : message.fileType === "audio"
+                      ? "a voice message"
+                      : "a file"
+                  }`;
 
-                console.log(`[Push] Sending to offline user ${participantId}: ${notificationBody}`);
+              console.log(`[Push] Sending to ${participantId} (socket ${receiverSocketId ? "alive" : "offline"}): ${notificationBody}`);
 
-                await sendPushNotification({
-                  to: receiver.expoPushToken,
-                  title: "New Message",
-                  body: notificationBody,
-                  data: {
-                    type: "chat",
-                    chatId: conversationId.toString(),
-                    senderId: senderId.toString(),
-                  },
-                });
-              } else {
-                console.log(`[Push] No push token for user ${participantId} — skipping.`);
-              }
-            } catch (pushError) {
-              // Push failure must never break message delivery
-              console.error("[Push] Error sending notification:", pushError.message);
+              await sendPushNotification({
+                to: receiver.expoPushToken,
+                title: "New Message",
+                body: notificationBody,
+                data: {
+                  type: "chat",
+                  chatId: conversationId.toString(),
+                  senderId: senderId.toString(),
+                },
+              });
+            } else {
+              console.log(`[Push] No push token for user ${participantId} — skipping.`);
             }
+          } catch (pushError) {
+            // Push failure must never break message delivery
+            console.error("[Push] Error sending notification:", pushError.message);
           }
         }
       }
