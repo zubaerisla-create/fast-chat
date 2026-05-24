@@ -1,5 +1,5 @@
 const express = require("express");
-const { sendOTP, register, login } = require("../controllers/authController");
+const { sendOTP, register, login, googleLogin } = require("../controllers/authController");
 
 const router = express.Router();
 
@@ -11,5 +11,8 @@ router.post("/register", register);
 
 // POST /api/auth/login
 router.post("/login", login);
+
+// POST /api/auth/google
+router.post("/google", googleLogin);
 
 module.exports = router;
