@@ -1,6 +1,6 @@
 const express = require("express");
 const multer = require("multer");
-const { uploadFile } = require("../controllers/uploadController");
+const { uploadFile, deleteUploadedFile } = require("../controllers/uploadController");
 const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -44,5 +44,6 @@ router.post("/", protect, (req, res, next) => {
     });
 }, uploadFile);
 
+router.post("/delete", protect, deleteUploadedFile);
 
 module.exports = router;

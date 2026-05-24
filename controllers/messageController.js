@@ -361,4 +361,110 @@ const uploadVoiceMessage = async (req, res, next) => {
   }
 };
 
-module.exports = { sendMessage, getMessages, uploadVoiceMessage, markMessagesAsRead };
+/**
+ * Helper to extract Cloudinary publicId from fileUrl
+ */
+const extractPublicIdFromUrl = (url) => {
+  try {
+    const parts = url.split("/");
+    const uploadIndex = parts.indexOf("upload");
+    if (uploadIndex === -1) return null;
+
+    let publicIdParts = parts.slice(uploadIndex + 1);
+    // If the next part is version (e.g. v1570975253), skip it
+    if (publicIdParts[0].startsWith("v") && !isNaN(publicIdParts[0].substring(1))) {
+      publicIdParts = publicIdParts.slice(1);
+    }
+
+    const publicIdWithExt = publicIdParts.join("/");
+    const dotIndex = publicIdWithExt.lastIndexOf(".");
+    if (dotIndex !== -1) {
+      return publicIdWithExt.substring(0, dotIndex);
+    }
+    return publicIdWithExt;
+  } catch (error) {
+    console.error("Error extracting public ID:", error);
+    return null;
+  }
+};
+
+/**
+ * DELETE /api/messages/:messageId
+ * Delete a message (only by the sender) and remove its file from Cloudinary if any.
+ */
+const deleteMessage = async (req, res, next) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, message: "Message not found." });
+    }
+
+    // Only the sender can delete their message
+    if (message.senderId.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: "You can only delete your own messages." });
+    }
+
+    // If there is an associated file, attempt to delete it from Cloudinary
+    if (message.fileUrl) {
+      const publicId = extractPublicIdFromUrl(message.fileUrl);
+      if (publicId) {
+        let resourceType = "raw";
+        if (message.fileType === "image") {
+          resourceType = "image";
+        } else if (message.fileType === "video" || message.fileType === "audio") {
+          resourceType = "video";
+        }
+
+        console.log(`🗑️ Deleting file from Cloudinary: ${publicId} (type: ${resourceType})`);
+        try {
+          await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+        } catch (cloudinaryError) {
+          console.error("Error deleting from Cloudinary:", cloudinaryError.message);
+        }
+      }
+    }
+
+    // Delete the message from DB
+    await Message.findByIdAndDelete(messageId);
+
+    // If this was the last message of the conversation, update the conversation's lastMessage reference
+    const conversation = await Conversation.findById(message.conversationId);
+    if (conversation && conversation.lastMessage && conversation.lastMessage.toString() === messageId) {
+      const lastMsg = await Message.findOne({ conversationId: message.conversationId })
+        .sort({ createdAt: -1 });
+      
+      await Conversation.findByIdAndUpdate(message.conversationId, {
+        lastMessage: lastMsg ? lastMsg._id : null,
+      });
+    }
+
+    // Notify other users via socket
+    const io = req.app.get("io");
+    if (io) {
+      const { onlineUsers } = require("../sockets/socketHandler");
+      const fullConversation = await Conversation.findById(message.conversationId).select("participants");
+      if (fullConversation) {
+        fullConversation.participants.forEach((participantId) => {
+          if (participantId.toString() === userId.toString()) return;
+          const receiverSocketId = onlineUsers.get(participantId.toString());
+          if (receiverSocketId) {
+            io.to(receiverSocketId).emit("messageDeleted", {
+              messageId,
+              conversationId: message.conversationId,
+            });
+          }
+        });
+      }
+    }
+
+    res.status(200).json({ success: true, message: "Message deleted successfully." });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { sendMessage, getMessages, uploadVoiceMessage, markMessagesAsRead, deleteMessage, extractPublicIdFromUrl };
+

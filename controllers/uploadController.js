@@ -75,4 +75,40 @@ const uploadFile = async (req, res, next) => {
     }
 };
 
-module.exports = { uploadFile };
+/**
+ * POST /api/upload/delete
+ * Delete an uploaded file directly from Cloudinary using publicId and fileType.
+ * Body: { publicId, fileType }
+ */
+const deleteUploadedFile = async (req, res, next) => {
+    try {
+        const { publicId, fileType } = req.body;
+
+        if (!publicId) {
+            return res.status(400).json({ success: false, message: "Public ID is required." });
+        }
+
+        // Map frontend fileType to Cloudinary resourceType
+        let resourceType = "raw";
+        if (fileType === "image") {
+            resourceType = "image";
+        } else if (fileType === "video" || fileType === "audio") {
+            resourceType = "video";
+        }
+
+        console.log(`🗑️ Directly deleting file from Cloudinary: ${publicId} (type: ${resourceType})`);
+
+        const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+
+        if (result.result === "ok" || result.result === "not found") {
+            return res.status(200).json({ success: true, message: "File deleted successfully.", result });
+        } else {
+            return res.status(400).json({ success: false, message: "Failed to delete file from Cloudinary.", result });
+        }
+    } catch (error) {
+        console.error("deleteUploadedFile controller error:", error.message);
+        next(error);
+    }
+};
+
+module.exports = { uploadFile, deleteUploadedFile };
