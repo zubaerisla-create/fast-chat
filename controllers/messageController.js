@@ -12,7 +12,19 @@ const { sendPushNotification } = require("../services/pushNotificationService");
  */
 const sendMessage = async (req, res, next) => {
   try {
-    const { conversationId, text, fileUrl, fileType, fileName, fileSize, audioDuration } = req.body;
+    const {
+      conversationId,
+      text,
+      fileUrl,
+      fileType,
+      fileName,
+      fileSize,
+      audioDuration,
+      replyToMessageId,
+      replyToText,
+      replyToSenderId,
+      replyToSender,
+    } = req.body;
     const senderId = req.user._id;
 
     if (!conversationId) {
@@ -40,6 +52,8 @@ const sendMessage = async (req, res, next) => {
       });
     }
 
+    const replyToSenderIdValue = replyToSenderId || replyToSender || null;
+
     // Create the message
     const message = await Message.create({
       conversationId,
@@ -50,6 +64,9 @@ const sendMessage = async (req, res, next) => {
       fileName: fileName || null,
       fileSize: fileSize || null,
       audioDuration: audioDuration || null,
+      replyToMessageId: replyToMessageId || null,
+      replyToText: replyToText || null,
+      replyToSenderId: replyToSenderIdValue,
     });
 
     // Update conversation: set lastMessage and bump updatedAt for sorting
@@ -87,6 +104,9 @@ const sendMessage = async (req, res, next) => {
                 fileType: message.fileType,
                 fileName: message.fileName,
                 audioDuration: message.audioDuration,
+                replyToMessageId: message.replyToMessageId,
+                replyToText: message.replyToText,
+                replyToSenderId: message.replyToSenderId,
                 isRead: message.isRead,
                 createdAt: message.createdAt,
                 timestamp: message.createdAt,

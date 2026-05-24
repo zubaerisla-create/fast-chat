@@ -18,7 +18,7 @@ const uploadFile = async (req, res, next) => {
 
         // Check if Cloudinary is configured
         if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY) {
-            console.error("❌ Cloudinary error: Missing credentials in environment variables.");
+            console.error("Cloudinary error: Missing credentials in environment variables.");
             return res.status(500).json({
                 success: false,
                 message: "Cloudinary is not configured on the server. Please check environment variables.",
@@ -70,7 +70,7 @@ const uploadFile = async (req, res, next) => {
             fileSize: size,
         });
     } catch (error) {
-        console.error("❌ uploadFile controller error:", error.message);
+        console.error("uploadFile controller error:", error.message);
         next(error);
     }
 };

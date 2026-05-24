@@ -19,6 +19,21 @@ const messageSchema = new mongoose.Schema(
       maxlength: [2000, "Message cannot exceed 2000 characters"],
       default: "",
     },
+    replyToMessageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
+    replyToText: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    replyToSenderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     // ── File / Media attachment ─────────────────────────────────────────────
     fileUrl: {
       type: String,
