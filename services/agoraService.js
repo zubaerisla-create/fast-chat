@@ -12,6 +12,7 @@ const getRtcToken = (channelName, uid) => {
     }
 
     // Provide a default uid if not passed (0 allows Agora to assign one)
+    
     const userId = uid || 0;
     const token = generateAgoraToken(channelName, userId);
 
