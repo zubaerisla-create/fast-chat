@@ -466,5 +466,81 @@ const deleteMessage = async (req, res, next) => {
   }
 };
 
-module.exports = { sendMessage, getMessages, uploadVoiceMessage, markMessagesAsRead, deleteMessage, extractPublicIdFromUrl };
+/**
+ * PATCH /api/messages/:messageId/react
+ * Add, remove, or update a reaction on a message.
+ * Body: { emoji }
+ */
+const reactToMessage = async (req, res, next) => {
+  try {
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    const userId = req.user._id;
+
+    if (!emoji) {
+      return res.status(400).json({ success: false, message: "Emoji is required." });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, message: "Message not found." });
+    }
+
+    // Verify user is a participant in this conversation
+    const conversation = await Conversation.findOne({
+      _id: message.conversationId,
+      participants: userId,
+    });
+    if (!conversation) {
+      return res.status(403).json({ success: false, message: "You are not a participant in this conversation." });
+    }
+
+    // Initialize reactions array if it doesn't exist
+    if (!message.reactions) {
+      message.reactions = [];
+    }
+
+    // Check if user already reacted
+    const existingReactionIndex = message.reactions.findIndex(
+      (r) => r.userId.toString() === userId.toString()
+    );
+
+    if (existingReactionIndex > -1) {
+      if (message.reactions[existingReactionIndex].emoji === emoji) {
+        // If same emoji, remove reaction (toggle behavior)
+        message.reactions.splice(existingReactionIndex, 1);
+      } else {
+        // Update to new emoji
+        message.reactions[existingReactionIndex].emoji = emoji;
+      }
+    } else {
+      // Add new reaction
+      message.reactions.push({ userId, emoji });
+    }
+
+    await message.save();
+
+    // ─── Real-time: broadcast to all participants ──
+    const io = req.app.get("io");
+    if (io) {
+      const { onlineUsers } = require("../sockets/socketHandler");
+      conversation.participants.forEach((participantId) => {
+        const socketId = onlineUsers.get(participantId.toString());
+        if (socketId) {
+          io.to(socketId).emit("messageReactionUpdated", {
+            messageId: message._id,
+            conversationId: message.conversationId,
+            reactions: message.reactions,
+          });
+        }
+      });
+    }
+
+    res.status(200).json({ success: true, reactions: message.reactions });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { sendMessage, getMessages, uploadVoiceMessage, markMessagesAsRead, deleteMessage, reactToMessage, extractPublicIdFromUrl };
 
