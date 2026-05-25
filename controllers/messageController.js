@@ -178,9 +178,6 @@ const sendMessage = async (req, res, next) => {
 const getMessages = async (req, res, next) => {
   try {
     const { conversationId } = req.params;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
-    const skip = (page - 1) * limit;
 
     // Security: verify user belongs to the conversation
     const conversation = await Conversation.findOne({
@@ -198,17 +195,15 @@ const getMessages = async (req, res, next) => {
     const [messages, total] = await Promise.all([
       Message.find({ conversationId })
         .populate("senderId", "username avatar")
-        .sort({ createdAt: 1 })
-        .skip(skip)
-        .limit(limit),
+        .sort({ createdAt: 1 }),
       Message.countDocuments({ conversationId }),
     ]);
 
     res.status(200).json({
       success: true,
       total,
-      page,
-      pages: Math.ceil(total / limit),
+      page: 1,
+      pages: 1,
       messages,
     });
   } catch (error) {
