@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 
@@ -23,10 +24,14 @@ const createConversation = async (req, res, next) => {
         .json({ success: false, message: "Cannot create conversation with yourself." });
     }
 
+    // Convert string IDs to mongoose ObjectIds to ensure the $all array query matches correctly
+    const senderObjectId = new mongoose.Types.ObjectId(senderId);
+    const receiverObjectId = new mongoose.Types.ObjectId(receiverId);
+
     // Check if a conversation already exists between these two users
     // Using $all ensures order doesn't matter
     const existingConversation = await Conversation.findOne({
-      participants: { $all: [senderId, receiverId], $size: 2 },
+      participants: { $all: [senderObjectId, receiverObjectId], $size: 2 },
     }).populate("participants", "username email avatar isOnline lastSeen");
 
     if (existingConversation) {
