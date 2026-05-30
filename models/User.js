@@ -41,6 +41,16 @@ const userSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    fcmToken: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    apnsVoipToken: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   { timestamps: true }
 );

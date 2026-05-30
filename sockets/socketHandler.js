@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const Message = require("../models/Message");
 const agoraService = require("../services/agoraService");
+const { sendVoipNotification } = require("../services/pushNotificationService");
 
 /**
  * In-memory map: userId (string) → socketId (string)
@@ -107,7 +108,7 @@ const initializeSocket = (io) => {
      * The SERVER generates the authoritative channelName to prevent mismatches.
      * Payload: { receiverId, callType: "audio"|"video", callerName? }
      */
-    socket.on("initiate_call", ({ receiverId, callType, callerName }) => {
+    socket.on("initiate_call", async ({ receiverId, callType, callerName }) => {
       const receiverSocketId = onlineUsers.get(receiverId);
       const callerId = socket.userId;
 
@@ -118,14 +119,7 @@ const initializeSocket = (io) => {
 
       console.log(`📞 [Call] initiate_call from ${callerId} → ${receiverId} (${callType})`);
 
-      if (!receiverSocketId) {
-        socket.emit("call_error", { message: "Receiver is currently offline" });
-        return;
-      }
-
       // SERVER generates the channel name — single source of truth
-      // Keep channel name ≤ 64 chars (Agora hard limit)
-      // Use last 8 chars of each ID + base-36 timestamp (~8 chars) = ~28 chars total
       const channelName = `ch_${callerId.slice(-8)}_${receiverId.slice(-8)}_${Date.now().toString(36)}`;
 
       // Store the active call
@@ -133,13 +127,30 @@ const initializeSocket = (io) => {
 
       console.log(`📡 [Call] Channel created: ${channelName}`);
 
-      // Notify receiver
-      io.to(receiverSocketId).emit("incomingCall", {
-        callerId,
-        callerName: callerName || "User",
-        channelName,
-        callType,
-      });
+      // Notify receiver via socket if they happen to be online
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("incomingCall", {
+          callerId,
+          callerName: callerName || "User",
+          channelName,
+          callType,
+        });
+      }
+
+      // Trigger Native VoIP Push (wakes up killed/backgrounded apps)
+      try {
+        const receiverUser = await User.findById(receiverId);
+        if (receiverUser) {
+          await sendVoipNotification({
+            user: receiverUser,
+            callerName: callerName || "User",
+            callType,
+            uuid: channelName, // Using channelName as the Call UUID
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch receiver for VoIP push:", err);
+      }
 
       // Confirm to caller
       socket.emit("call_initiated", { receiverId, channelName, callType });
