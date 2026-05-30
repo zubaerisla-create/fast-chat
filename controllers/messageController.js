@@ -195,6 +195,7 @@ const getMessages = async (req, res, next) => {
     const [messages, total] = await Promise.all([
       Message.find({ conversationId })
         .populate("senderId", "username avatar")
+        .populate("reactions.userId", "username avatar")
         .sort({ createdAt: 1 }),
       Message.countDocuments({ conversationId }),
     ]);
@@ -507,13 +508,17 @@ const reactToMessage = async (req, res, next) => {
       } else {
         // Update to new emoji
         message.reactions[existingReactionIndex].emoji = emoji;
+        message.reactions[existingReactionIndex].createdAt = new Date();
       }
     } else {
       // Add new reaction
-      message.reactions.push({ userId, emoji });
+      message.reactions.push({ userId, emoji, createdAt: new Date() });
     }
 
     await message.save();
+
+    // Populate reactions user details
+    await message.populate("reactions.userId", "username avatar");
 
     // ─── Real-time: broadcast to all participants ──
     const io = req.app.get("io");
